@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vesmírny pozorovateľ</title>
+<style>
+  :root{
+    --bg-deep:#05061a;
+    --bg-panel:#11132b;
+    --bg-panel-2:#181a3a;
+    --line:#2c2f57;
+    --text:#eceaf6;
+    --text-dim:#8d90b8;
+    --gold:#ffce54;
+    --gold-dim:#a8873a;
+    --moon-a:#e7e5df;
+    --moon-b:#9a988f;
+    --moon-c:#5f5d55;
+    --mars-a:#f0774a;
+    --mars-b:#b23f22;
+    --mars-c:#6e2412;
+    --venus-a:#fffaf0;
+    --venus-b:#e8dfc6;
+    --venus-c:#c3b795;
+    --mercury-a:#c7bfb4;
+    --mercury-b:#8a8074;
+    --mercury-c:#4a443c;
+    --saturn-a:#f7e7bb;
+    --saturn-b:#d1ac72;
+    --saturn-c:#8f6c3d;
+    --jupiter-a:#ecd3ab;
+    --jupiter-b:#c98a52;
+    --jupiter-c:#7a4a26;
+    --neptune-a:#9fcaff;
+    --neptune-b:#3f6fd6;
+    --neptune-c:#1c3170;
+    --uranus-a:#e4fbf7;
+    --uranus-b:#93d9d0;
+    --uranus-c:#4d8f88;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:radial-gradient(ellipse at 50% -10%, #14163a 0%, var(--bg-deep) 55%);
+    font-family:'Quicksand','Segoe UI',system-ui,sans-serif;
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ---------- background: stars + meteors ---------- */
+  #bg{
+    position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;
+  }
+  .star{
+    position:absolute; border-radius:50%; background:#fff;
+    animation:twinkle linear infinite;
+  }
+  @keyframes twinkle{
+    0%,100%{opacity:.15;}
+    50%{opacity:1;}
+  }
+  .meteor{
+    position:absolute;
+    width:110px; height:2px;
+    background:linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0));
+    border-radius:2px;
+    transform-origin:left center;
+    animation:fall linear infinite;
+    opacity:0;
+  }
+  @keyframes fall{
+    0%{ transform: translate(0,0) rotate(35deg); opacity:0; }
+    5%{ opacity:1; }
+    85%{ opacity:1; }
+    100%{ transform: translate(520px, 380px) rotate(35deg); opacity:0; }
+  }
+
+  /* ---------- layout ---------- */
+  .console{
+    position:relative; z-index:1;
+    width:min(430px, 92vw);
+    background:linear-gradient(180deg, var(--bg-panel), var(--bg-panel-2));
+    border:1px solid var(--line);
+    border-radius:26px;
+    padding:20px 18px 26px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.04);
+  }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:6px;
+  }
+  .coins{
+    display:flex; align-items:center; gap:8px;
+    background:#000a; border:1px solid var(--line);
+    padding:7px 14px; border-radius:999px;
+    font-weight:700; font-size:15px; letter-spacing:.2px;
+  }
+  .coin-dot{
+    width:16px;height:16px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fff2b0, var(--gold) 55%, var(--gold-dim) 100%);
+    box-shadow:0 0 8px rgba(255,206,84,.6);
+    flex-shrink:0;
+  }
+  .reset-btn{
+    background:none;border:1px solid var(--line);color:var(--text-dim);
+    font-size:11px;padding:6px 10px;border-radius:999px;cursor:pointer;
+    font-family:inherit;
+  }
+  .reset-btn:hover{color:var(--text);border-color:#4a4e86;}
+
+  .planet-nav{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    margin:10px 0 4px;
+  }
+  .arrow{
+    width:38px;height:38px;border-radius:50%;
+    border:1px solid var(--line); background:#0006;
+    color:var(--text); font-size:16px; cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s ease, background .15s ease;
+    flex-shrink:0;
+  }
+  .arrow:hover{background:#1c1f45; transform:scale(1.06);}
+  .arrow:active{transform:scale(.94);}
+  .arrow[disabled]{opacity:.25; cursor:not-allowed; transform:none;}
+
+  .planet-title{
+    text-align:center; min-width:120px;
+  }
+  .planet-title .name{ font-size:19px; font-weight:700; }
+  .planet-title .sub{ font-size:11.5px; color:var(--text-dim); margin-top:1px; }
+
+  .stage{
+    position:relative;
+    width:264px; height:264px;
+    margin:14px auto 6px;
+  }
+  .planet-body{
+    position:absolute; inset:0; border-radius:50%;
+    box-shadow: inset -18px -18px 40px rgba(0,0,0,.55), 0 20px 50px -15px rgba(0,0,0,.7);
+    transition:opacity .25s ease, filter .25s ease;
+  }
+  .planet-body.moon{
+    background:radial-gradient(circle at 35% 30%, var(--moon-a) 0%, var(--moon-b) 55%, var(--moon-c) 100%);
+  }
+  .planet-body.mars{
+    background:radial-gradient(circle at 35% 30%, var(--mars-a) 0%, var(--mars-b) 55%, var(--mars-c) 100%);
+  }
+  .planet-body.venus{
+    background:radial-gradient(circle at 35% 30%, var(--venus-a) 0%, var(--venus-b) 55%, var(--venus-c) 100%);
+  }
+  .planet-body.mercury{
+    background:radial-gradient(circle at 35% 30%, var(--mercury-a) 0%, var(--mercury-b) 55%, var(--mercury-c) 100%);
+  }
+  .planet-body.saturn{
+    background:radial-gradient(circle at 35% 30%, var(--saturn-a) 0%, var(--saturn-b) 55%, var(--saturn-c) 100%);
+    z-index:2;
+  }
+  .saturn-ring{
+    display:none;
+    position:absolute; left:50%; top:50%;
+    width:150%; height:38%;
+    transform:translate(-50%,-50%) rotate(-11deg);
+    border-radius:50%;
+    border:9px solid rgba(216,196,150,.55);
+    border-top-color:rgba(160,138,92,.35);
+    border-bottom-color:rgba(160,138,92,.35);
+    z-index:1;
+    pointer-events:none;
+  }
+  .planet-body.jupiter{
+    background:
+      repeating-linear-gradient(180deg, rgba(110,65,25,.28) 0px, rgba(110,65,25,.28) 7px, transparent 7px, transparent 16px),
+      radial-gradient(circle at 35% 30%, var(--jupiter-a) 0%, var(--jupiter-b) 55%, var(--jupiter-c) 100%);
+  }
+  .planet-body.neptune{
+    background:radial-gradient(circle at 35% 30%, var(--neptune-a) 0%, var(--neptune-b) 55%, var(--neptune-c) 100%);
+  }
+  .planet-body.uranus{
+    background:radial-gradient(circle at 35% 30%, var(--uranus-a) 0%, var(--uranus-b) 55%, var(--uranus-c) 100%);
+  }
+  .locked .planet-body{ filter:grayscale(.85) brightness(.4); }
+  .locked .saturn-ring{ filter:grayscale(.85) brightness(.4); }
+
+  .spot{
+    position:absolute; border-radius:50%;
+    width:38px; height:38px;
+    transform:translate(-50%,-50%);
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .1s ease;
+  }
+  .spot:active{ transform:translate(-50%,-50%) scale(.88); }
+  .spot::after{
+    content:''; position:absolute; inset:0; border-radius:50%;
+  }
+  .spot.moon-spot::after{
+    background:radial-gradient(circle at 40% 35%, #00000022, #00000066 70%);
+    border:1px solid #00000055;
+  }
+  .spot.mars-spot::after{
+    background:linear-gradient(180deg, #ececec 0%, #9c9c9c 55%, #6a6a6a 100%);
+    clip-path: polygon(42% 100%, 58% 100%, 72% 18%, 50% 2%, 28% 18%);
+    box-shadow:0 3px 8px rgba(0,0,0,.55);
+    border:none;
+  }
+  .spot.mars-spot::before{
+    content:''; position:absolute; top:0; left:50%;
+    width:6px; height:6px; border-radius:50%;
+    background:#ff5a4a; box-shadow:0 0 7px #ff5a4a;
+    transform:translate(-50%,-40%);
+    animation:towerBlink 1.1s ease-in-out infinite;
+  }
+  @keyframes towerBlink{ 0%,100%{opacity:1;} 50%{opacity:.15;} }
+
+  .spot.saturn-spot{ z-index:3; }
+  .spot.saturn-spot::after{
+    background:linear-gradient(160deg, #e6dcc4 0%, #a99a76 55%, #6f6348 100%);
+    border-radius:60% 40% 55% 45% / 50% 60% 40% 50%;
+    box-shadow:0 3px 7px rgba(0,0,0,.5);
+    border:none;
+  }
+  .spot.venus-spot::after{
+    content:'';
+    position:absolute; inset:8px 5px 12px 5px;
+    border-radius:50%;
+    background:#cfcfd8;
+    box-shadow:
+      -9px 3px 0 -3px #cfcfd8,
+       9px 3px 0 -3px #cfcfd8,
+       0px 7px 0 -1px #bcbcc8;
+  }
+  .spot.jupiter-spot::after{
+    background:linear-gradient(160deg,#fff6c0 0%, #ffd83d 55%, #e0a400 100%);
+    clip-path: polygon(60% 0%, 25% 55%, 45% 55%, 35% 100%, 78% 40%, 50% 40%);
+    filter: drop-shadow(0 0 6px rgba(255,216,61,.85));
+    border:none; border-radius:0;
+  }
+  .spot.neptune-spot::after{
+    inset:15px 1px;
+    border-radius:50%;
+    background:linear-gradient(100deg, #eaf7ff 0%, #6fb8ff 55%, #2f6fcf 100%);
+    transform:rotate(-16deg);
+    box-shadow:0 0 8px rgba(111,184,255,.7);
+    border:none;
+  }
+  .spot.uranus-spot{ width:26px; height:26px; }
+  .spot.uranus-spot::after{
+    background:radial-gradient(circle at 35% 30%, #f4fffe 0%, #b9e8e2 60%, #6fa39c 100%);
+    border:1px solid rgba(255,255,255,.4);
+    box-shadow:0 2px 6px rgba(0,0,0,.45);
+  }
+  .locked .spot{ pointer-events:none; }
+
+  .spot.spot-disabled{
+    pointer-events:none;
+    opacity:.35;
+    filter:grayscale(.7);
+  }
+
+  @keyframes pulseBuy{
+    0%,100%{ box-shadow:0 6px 14px -6px rgba(255,206,84,.6); }
+    50%{ box-shadow:0 6px 22px -4px rgba(255,206,84,1); }
+  }
+  .buy-btn.ready{ animation:pulseBuy 1.1s ease-in-out infinite; }
+
+  .lock-overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:8px;
+    color:#fff; text-align:center; padding:20px;
+    opacity:0; pointer-events:none; transition:opacity .25s ease;
+  }
+  .locked .lock-overlay{ opacity:1; }
+  .lock-icon{ font-size:34px; }
+  .lock-text{ font-size:12.5px; color:#d8d9ee; max-width:190px; line-height:1.4; }
+
+  .floater{
+    position:absolute; pointer-events:none;
+    font-weight:800; font-size:15px; color:var(--gold);
+    text-shadow:0 1px 4px rgba(0,0,0,.6);
+    animation:floatUp .8s ease-out forwards;
+  }
+  @keyframes floatUp{
+    0%{ opacity:1; transform:translate(-50%,-50%) translateY(0); }
+    100%{ opacity:0; transform:translate(-50%,-50%) translateY(-46px); }
+  }
+
+  .clickval{
+    text-align:center; font-size:12px; color:var(--text-dim); margin-top:2px;
+  }
+  .clickval b{ color:var(--gold); }
+
+  .shop{
+    margin-top:16px; background:#0007; border:1px solid var(--line);
+    border-radius:16px; padding:14px 14px 12px;
+  }
+  .shop-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .shop-info .t{ font-weight:700; font-size:13.5px; }
+  .shop-info .d{ font-size:11.5px; color:var(--text-dim); margin-top:2px; }
+  .buy-btn{
+    flex-shrink:0;
+    background:linear-gradient(180deg, #ffe08a, var(--gold));
+    color:#402c00; border:none; font-weight:800; font-size:12.5px;
+    padding:10px 14px; border-radius:11px; cursor:pointer;
+    box-shadow:0 6px 14px -6px rgba(255,206,84,.6);
+    font-family:inherit; white-space:nowrap;
+  }
+  .buy-btn:hover{ filter:brightness(1.05); }
+  .buy-btn:active{ transform:translateY(1px); }
+  .buy-btn[disabled]{
+    background:#2a2c4c; color:#666a92; box-shadow:none; cursor:not-allowed;
+  }
+  .shop-done{
+    text-align:center; font-size:12px; color:var(--text-dim); padding:4px 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="bg"></div>
+
+<div class="console">
+  <div class="topbar">
+    <div class="coins"><span class="coin-dot"></span><span id="coinCount">0</span></div>
+    <button class="reset-btn" id="resetBtn">reset</button>
+  </div>
+
+  <div class="planet-nav">
+    <button class="arrow" id="prevBtn">&#10094;</button>
+    <div class="planet-title">
+      <div class="name" id="planetName">Mesiac</div>
+      <div class="sub" id="planetSub">klikni na kráter</div>
+    </div>
+    <button class="arrow" id="nextBtn">&#10095;</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="saturn-ring" id="saturnRing"></div>
+    <div class="planet-body" id="planetBody"></div>
+    <div id="spots"></div>
+    <div class="lock-overlay" id="lockOverlay">
+      <div class="lock-icon">🔒</div>
+      <div class="lock-text" id="lockText">Uzamknuté</div>
+    </div>
+  </div>
+
+  <div class="clickval" id="clickValRow">za klik dostaneš <b id="clickVal">10</b> coinov</div>
+
+  <div class="shop" id="shop"></div>
+</div>
+
+<script>
+/* ---------------- background: stars + meteors ---------------- */
+const bg = document.getElementById('bg');
+for(let i=0;i<70;i++){
+  const s = document.createElement('div');
+  s.className='star';
+  const size = Math.random()*2+1;
+  s.style.width = size+'px';
+  s.style.height = size+'px';
+  s.style.left = Math.random()*100+'%';
+  s.style.top = Math.random()*100+'%';
+  s.style.animationDuration = (Math.random()*3+2)+'s';
+  s.style.animationDelay = (Math.random()*4)+'s';
+  bg.appendChild(s);
+}
+function spawnMeteor(){
+  const m = document.createElement('div');
+  m.className='meteor';
+  m.style.left = Math.random()*80+'%';
+  m.style.top = (Math.random()*30-10)+'%';
+  m.style.animationDuration = (Math.random()*1.2+1.4)+'s';
+  bg.appendChild(m);
+  setTimeout(()=>m.remove(), 3000);
+}
+setInterval(spawnMeteor, 1400);
+spawnMeteor();
+
+/* ---------------- game config ---------------- */
+// Kazda planeta: kolko "miest" (kraterov/stanic) sa da klikat,
+// zakladna hodnota za klik a zoznam teleskopov ktore sa daju kupit.
+const PLANETS = [
+  {
+    id:'moon', name:'Mesiac', spotClass:'moon-spot', bodyClass:'moon',
+    unlocked:true, spotLabel:'kráter',
+    positions:[[30,32],[68,26],[50,55],[76,68],[24,72]],
+    baseClick:10,
+    telescopes:[
+      { cost:50,  newClick:20, label:'Ďalekohľad I'  },
+      { cost:100, newClick:20, label:'Ďalekohľad II', unlocks:'mars' }
+    ]
+  },
+  {
+    id:'mars', name:'Mars', spotClass:'mars-spot', bodyClass:'mars',
+    unlocked:false, spotLabel:'stanica',
+    positions:[[28,30],[70,24],[50,54],[74,70],[26,74]],
+    baseClick:30,
+    telescopes:[
+      { cost:150, newClick:60, label:'Ďalekohľad III', unlocks:'venus' }
+    ]
+  },
+  {
+    id:'venus', name:'Venuša', spotClass:'venus-spot', bodyClass:'venus',
+    unlocked:false, spotLabel:'oblak',
+    positions:[[30,32],[68,26],[50,55],[76,68],[24,72]],
+    baseClick:40,
+    telescopes:[
+      { cost:200, newClick:80, label:'Ďalekohľad IV', unlocks:'mercury' }
+    ]
+  },
+  {
+    id:'mercury', name:'Merkúr', spotClass:'moon-spot', bodyClass:'mercury',
+    unlocked:false, spotLabel:'kráter',
+    positions:[[32,30],[70,32],[62,66],[26,64]],
+    baseClick:60,
+    telescopes:[
+      { cost:240, newClick:120, label:'Ďalekohľad V', unlocks:'saturn' }
+    ]
+  },
+  {
+    id:'saturn', name:'Saturn', spotClass:'saturn-spot', bodyClass:'saturn',
+    unlocked:false, spotLabel:'kameň',
+    positions:[[104,50],[77,36],[23,36],[-4,50],[23,64],[77,64]],
+    baseClick:50,
+    telescopes:[
+      { cost:300, newClick:100, label:'Ďalekohľad VI', unlocks:'jupiter' }
+    ]
+  },
+  {
+    id:'jupiter', name:'Jupiter', spotClass:'jupiter-spot', bodyClass:'jupiter',
+    unlocked:false, spotLabel:'blesk',
+    positions:[[30,32],[68,26],[50,55],[76,68],[24,72]],
+    baseClick:70,
+    telescopes:[
+      { cost:350, newClick:140, label:'Ďalekohľad VII', unlocks:'neptune' }
+    ]
+  },
+  {
+    id:'neptune', name:'Neptún', spotClass:'neptune-spot', bodyClass:'neptune',
+    unlocked:false, spotLabel:'rieka',
+    positions:[[32,30],[70,32],[62,66],[26,64]],
+    baseClick:90,
+    telescopes:[
+      { cost:360, newClick:180, label:'Ďalekohľad VIII', unlocks:'uranus' }
+    ]
+  },
+  {
+    id:'uranus', name:'Urán', spotClass:'uranus-spot', bodyClass:'uranus',
+    unlocked:false, spotLabel:'mesiac',
+    positions:[[-6,50],[22,12],[78,12],[106,50],[50,98]],
+    baseClick:100,
+    telescopes:[
+      { cost:500, newClick:200, label:'Ďalekohľad IX', unlocks:'sun' }
+    ]
+  },
+  {
+    id:'sun', name:'Slnko', spotClass:'sun-spot', bodyClass:'sun',
+    unlocked:false, spotLabel:'slnečná škvrna',
+    positions:[[30,32],[68,26],[50,55],[76,68],[24,72]],
+    baseClick:0,
+    telescopes:[]
+  }
+];
+
+let state = {
+  coins:0,
+  current:0,
+  progress:{} // { moon: {level:0}, mars:{level:0} }
+};
+PLANETS.forEach(p=> state.progress[p.id] = { level:0, clicked:new Array(p.positions.length).fill(false) });
+
+/* ---------------- persistence ---------------- */
+async function loadState(){
+  try{
+    const r = await window.storage.get('vesmirna-hra-state');
+    if(r && r.value){
+      const saved = JSON.parse(r.value);
+      state.coins = saved.coins || 0;
+      state.current = saved.current || 0;
+      PLANETS.forEach(p=>{
+        if(saved.progress && saved.progress[p.id]){
+          state.progress[p.id].level = saved.progress[p.id].level || 0;
+          if(Array.isArray(saved.progress[p.id].clicked)){
+            state.progress[p.id].clicked = saved.progress[p.id].clicked;
+          }
+        }
+      });
+      applyUnlocks();
+    }
+  }catch(e){ /* ziadne ulozene data, zaciname od nuly */ }
+  render();
+}
+async function saveState(){
+  try{
+    await window.storage.set('vesmirna-hra-state', JSON.stringify(state));
+  }catch(e){ /* ulozenie zlyhalo, hra pokracuje aj tak */ }
+}
+
+function applyUnlocks(){
+  PLANETS.forEach(p=>{
+    const lvl = state.progress[p.id].level;
+    p.telescopes.forEach((t,i)=>{
+      if(i < lvl && t.unlocks){
+        const target = PLANETS.find(x=>x.id===t.unlocks);
+        if(target) target.unlocked = true;
+      }
+    });
+  });
+}
+
+function nextTelescope(planet){
+  const lvl = state.progress[planet.id].level;
+  return planet.telescopes[lvl] || null;
+}
+function readyToUpgrade(planet){
+  const next = nextTelescope(planet);
+  return next && state.coins >= next.cost;
+}
+
+function currentClickValue(planet){
+  const lvl = state.progress[planet.id].level;
+  let val = planet.baseClick;
+  for(let i=0;i<lvl;i++){
+    if(planet.telescopes[i]) val = planet.telescopes[i].newClick;
+  }
+  return val;
+}
+
+/* ---------------- rendering ---------------- */
+const stage = document.getElementById('stage');
+const planetBody = document.getElementById('planetBody');
+const saturnRing = document.getElementById('saturnRing');
+const spotsWrap = document.getElementById('spots');
+const lockOverlay = document.getElementById('lockOverlay');
+const lockText = document.getElementById('lockText');
+const planetName = document.getElementById('planetName');
+const planetSub = document.getElementById('planetSub');
+const clickVal = document.getElementById('clickVal');
+const clickValRow = document.getElementById('clickValRow');
+const coinCount = document.getElementById('coinCount');
+const shop = document.getElementById('shop');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+
+function render(){
+  const planet = PLANETS[state.current];
+  coinCount.textContent = state.coins;
+  planetName.textContent = planet.name;
+  planetBody.className = 'planet-body ' + planet.bodyClass;
+  saturnRing.style.display = (planet.id === 'saturn') ? 'block' : 'none';
+
+  prevBtn.disabled = state.current === 0;
+  nextBtn.disabled = state.current === PLANETS.length - 1;
+
+  stage.classList.toggle('locked', !planet.unlocked);
+
+  if(!planet.unlocked){
+    planetSub.textContent = 'uzamknuté';
+    lockText.textContent = 'Odomkneš ho ďalším ďalekohľadom na predchádzajúcej planéte';
+    clickValRow.style.display = 'none';
+    spotsWrap.innerHTML = '';
+    shop.innerHTML = '<div class="shop-done">Najprv odomkni túto planétu.</div>';
+    return;
+  }
+
+  const val = currentClickValue(planet);
+  const next = nextTelescope(planet);
+  const readyForUpgrade = readyToUpgrade(planet);
+  const finished = !next;
+  const clicked = state.progress[planet.id].clicked;
+  const allClicked = clicked.every(c=>c);
+  clickVal.textContent = val;
+
+  if(finished){
+    planetSub.textContent = planet.name + ' je celá preskúmaná';
+    planetSub.style.color = '';
+    clickValRow.style.display = 'none';
+  }else if(readyForUpgrade){
+    planetSub.textContent = 'máš dosť na ďalekohľad — kúp ho dole';
+    planetSub.style.color = 'var(--gold)';
+    clickValRow.style.display = '';
+  }else if(allClicked){
+    planetSub.textContent = 'počkaj na ďalší ďalekohľad';
+    planetSub.style.color = '';
+    clickValRow.style.display = '';
+  }else{
+    planetSub.textContent = 'klikni na ' + planet.spotLabel;
+    planetSub.style.color = '';
+    clickValRow.style.display = '';
+  }
+
+  spotsWrap.innerHTML = '';
+  planet.positions.forEach((pos, idx)=>{
+    const isDisabled = finished || readyForUpgrade || clicked[idx];
+    const s = document.createElement('div');
+    s.className = 'spot ' + planet.spotClass + (isDisabled ? ' spot-disabled' : '');
+    s.style.left = pos[0]+'%';
+    s.style.top = pos[1]+'%';
+    if(!isDisabled){
+      s.addEventListener('click', (e)=> onSpotClick(e, planet, val, idx));
+    }
+    spotsWrap.appendChild(s);
+  });
+
+  renderShop(planet);
+}
+
+function onSpotClick(e, planet, val, idx){
+  state.progress[planet.id].clicked[idx] = true;
+  state.coins += val;
+  const rect = stage.getBoundingClientRect();
+  const f = document.createElement('div');
+  f.className = 'floater';
+  f.textContent = '+' + val;
+  f.style.left = (e.clientX - rect.left) + 'px';
+  f.style.top = (e.clientY - rect.top) + 'px';
+  stage.appendChild(f);
+  setTimeout(()=>f.remove(), 850);
+  saveState();
+  render();
+}
+
+function renderShop(planet){
+  const lvl = state.progress[planet.id].level;
+  const next = planet.telescopes[lvl];
+  if(!next){
+    shop.innerHTML = '<div class="shop-done">Všetky ďalekohľady na tejto planéte sú kúpené.</div>';
+    return;
+  }
+  const canAfford = state.coins >= next.cost;
+  const currentVal = currentClickValue(planet);
+  const isLastTelescope = (lvl + 1 >= planet.telescopes.length);
+  let desc;
+  if(next.unlocks){
+    const target = PLANETS.find(p=>p.id===next.unlocks);
+    desc = 'odomkne ' + (target ? target.name : next.unlocks);
+  }else if(isLastTelescope){
+    desc = 'dokončí skúmanie tejto planéty';
+  }else if(next.newClick !== currentVal){
+    desc = 'zvýši zisk na ' + next.newClick + ' coinov za klik';
+  }else{
+    desc = 'ďalší krok v skúmaní';
+  }
+  shop.innerHTML = `
+    <div class="shop-row">
+      <div class="shop-info">
+        <div class="t">${next.label} — ${next.cost} coinov</div>
+        <div class="d">${desc}</div>
+      </div>
+      <button class="buy-btn${canAfford ? ' ready' : ''}" id="buyBtn" ${canAfford ? '' : 'disabled'}>Kúpiť</button>
+    </div>
+  `;
+  const buyBtn = document.getElementById('buyBtn');
+  buyBtn.addEventListener('click', ()=>{
+    if(state.coins < next.cost) return;
+    state.coins -= next.cost;
+    state.progress[planet.id].level += 1;
+    state.progress[planet.id].clicked = new Array(planet.positions.length).fill(false);
+    if(next.unlocks){
+      const target = PLANETS.find(p=>p.id===next.unlocks);
+      if(target) target.unlocked = true;
+    }
+    saveState();
+    render();
+  });
+}
+
+prevBtn.addEventListener('click', ()=>{
+  if(state.current > 0){ state.current--; saveState(); render(); }
+});
+nextBtn.addEventListener('click', ()=>{
+  if(state.current < PLANETS.length - 1){ state.current++; saveState(); render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', async ()=>{
+  state.coins = 0; state.current = 0;
+  PLANETS.forEach(p=>{ state.progress[p.id].level = 0; state.progress[p.id].clicked = new Array(p.positions.length).fill(false); if(p.id!=='moon') p.unlocked=false; });
+  await saveState();
+  render();
+});
+
+loadState();
+</script>
+</body>
+</html>
